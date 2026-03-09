@@ -32,7 +32,7 @@ A personal finance OS built for long-term, rules-based investing. No backend, no
 
 ## Live
 
-🔗 [Open Compound](https://YOUR_USERNAME.github.io/compound)
+🔗 [Open Compound]((https://blaze-zhang.github.io/Compound-Investment-Tracker/))
 
 ---
 
