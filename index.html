@@ -435,7 +435,7 @@ input[type=number]::-webkit-inner-spin-button { display:none; }
     <div class="modal-title" id="asset-modal-title">Edit Assets</div>
     <div id="asset-edit-rows"></div>
     <button class="btn btn-secondary btn-sm mt8" onclick="addAssetRow()">+ Add Row</button>
-    <div class="alert alert-red hidden mt8" id="asset-warn">Total must equal 100%</div>
+    <div class="mt8" id="asset-warn-wrap"><span id="asset-sum-badge" class="badge">Sum: 0%</span> <span style="font-size:11px;color:var(--muted)">（不强制100%，按实际比例分配）</span></div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('asset-modal')">Cancel</button><button class="btn btn-primary" onclick="saveAssets()">Save</button></div>
   </div>
 </div>
@@ -761,12 +761,16 @@ function renderAssetEditRows(assets) {
 
 function addAssetRow() { (assetEditType==='crypto'?S.cryptoAssets:S.stockAssets).push({t:'',p:0}); renderAssetEditRows(assetEditType==='crypto'?S.cryptoAssets:S.stockAssets); }
 function rmAssetRow(i) { (assetEditType==='crypto'?S.cryptoAssets:S.stockAssets).splice(i,1); renderAssetEditRows(assetEditType==='crypto'?S.cryptoAssets:S.stockAssets); }
-function chkAssets() { let s=0; document.querySelectorAll('[id^="ap-"]').forEach(el=>s+=parseFloat(el.value)||0); document.getElementById('asset-warn').classList.toggle('hidden',s===100); }
+
+function chkAssets() {
+  let s=0; document.querySelectorAll('[id^="ap-"]').forEach(el=>s+=parseFloat(el.value)||0);
+  const badge=document.getElementById('asset-sum-badge');
+  if(badge) { badge.textContent=`Sum: ${s}%`; badge.className='badge '+(s===100?'badge-green':s>100?'badge-red':'badge-gold'); }
+}
 
 function saveAssets() {
-  const els=document.querySelectorAll('[id^="an-"]'); let s=0;
-  const arr=[]; els.forEach((el,i)=>{const p=parseFloat(document.getElementById(`ap-${i}`).value)||0; s+=p; arr.push({t:el.value.trim().toUpperCase(),p});});
-  if(s!==100){toast('Must sum to 100%');return;}
+  const els=document.querySelectorAll('[id^="an-"]');
+  const arr=[]; els.forEach((el,i)=>{const p=parseFloat(document.getElementById(`ap-${i}`).value)||0; arr.push({t:el.value.trim().toUpperCase(),p});});
   if(assetEditType==='crypto') S.cryptoAssets=arr; else S.stockAssets=arr;
   save(); closeModal('asset-modal'); calcAlloc(); toast('Assets saved');
 }
@@ -1197,6 +1201,37 @@ function renderRecords() {
 
 function setRF(a) { recFilter=a; renderRecords(); }
 function toggleMore() { showMore=!showMore; renderRecords(); }
+
+// ── PASTE JSON IMPORT ──
+function previewPaste() {
+  try {
+    const raw=document.getElementById('paste-input').value.trim();
+    const arr=Array.isArray(JSON.parse(raw))?JSON.parse(raw):[JSON.parse(raw)];
+    document.getElementById('paste-preview').innerHTML=
+      `<div class="alert alert-green"><div class="alert-icon">✓</div><div>${arr.length} record(s) ready · `+
+      arr.map(r=>`<span class="badge badge-blue" style="margin:2px">${r.asset} ${r.type} ${r.amount}</span>`).join(' ')+
+      '</div></div>';
+  } catch(e) {
+    document.getElementById('paste-preview').innerHTML=
+      `<div class="alert alert-red"><div class="alert-icon">❌</div><div>Invalid JSON — check format and try again.</div></div>`;
+  }
+}
+
+function confirmPaste() {
+  try {
+    const raw=document.getElementById('paste-input').value.trim();
+    const data=Array.isArray(JSON.parse(raw))?JSON.parse(raw):[JSON.parse(raw)];
+    const key=r=>`${r.date}_${r.asset}_${r.amount}`;
+    const existing=new Set((S.records||[]).map(key));
+    const toAdd=data.filter(r=>r.asset&&r.amount&&!existing.has(key(r)));
+    toAdd.forEach(r=>{r.asset=r.asset.toUpperCase().trim();S.records.push(r);});
+    save(); closeModal('paste-modal');
+    document.getElementById('paste-input').value='';
+    document.getElementById('paste-preview').innerHTML='';
+    renderRecords();
+    toast(`✓ Imported ${toAdd.length} records (${data.length-toAdd.length} duplicates skipped)`);
+  } catch(e) { toast('Import failed — check JSON format'); }
+}
 
 // ── IMPORT RECORDS FROM JSON FILE ──
 function importRecordsJSON(event) {
